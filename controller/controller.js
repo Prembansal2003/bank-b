@@ -145,9 +145,16 @@ const getTransactionSummary = async (req, res, schema) => {
             }
         ]);
 
-        if (summary.length == 0) {
-            return res.status(404).json({ message: "No matching transactions found" });
-        }
+       if(summary.length==0){
+        return res.status(200).json({
+            totalCredit:0,
+            totalDebit:0,
+            totalTransactions:0,
+            creditCount:0,
+            debitCount:0,
+            balance:0
+        });
+    }
 
         // 3. Cache for 60 seconds
         await setCache(cacheKey, summary[0], TTL.summary);
