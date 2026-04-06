@@ -1,277 +1,332 @@
-# 🏦 Trusted Bank — Backend
+# Trusted Bank Management System — Backend
 
-![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
-![Express.js](https://img.shields.io/badge/Express.js-404D59?style=for-the-badge)
-![MongoDB](https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white)
-![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)
-![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)
-
-A secure, modular REST API for a banking system built with **Node.js**, **Express**, and **MongoDB**. Handles authentication, role-based access control, customer management, transactions, file uploads, and email notifications.
+A RESTful API server built with **Node.js**, **Express**, and **MongoDB** that powers the Trusted Bank Management System. It handles authentication, user and customer management, transactions, branch/currency/branding configuration, and file uploads, with Redis-backed caching for high-read endpoints.
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Project Structure](#-project-structure)
-- [Installation & Setup](#-installation--setup)
-- [Environment Variables](#-environment-variables)
-- [API Reference](#-api-reference)
-- [Security Model](#-security-model)
-- [Data Models](#-data-models)
-
----
-
-## 🚀 Features
-
-- **JWT Authentication** — Token-based login for Admin, Employee, and Customer roles
-- **Role-Based Access Control** — Three middleware guards: `isAdmin`, `isAdminEmployee`, `isAdminEmployeeCustomer`
-- **Customer Management** — Create, read, update, delete customer accounts with branch-level scoping
-- **Staff Management** — Admin-controlled employee creation and management
-- **Transaction Engine** — Credit/Debit entries with running balance, pagination, date filtering, and aggregation summaries
-- **File Uploads** — Photo, signature, and document uploads via Multer + Cloudinary
-- **Email Notifications** — Automated credential emails on account creation via SendGrid / Nodemailer
-- **Bank Configuration** — Branch, currency, and branding management
-- **Request Validation** — Dedicated validation middleware for all create endpoints
-- **Password Security** — Bcrypt hashing with pre-save hooks on the User model
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Environment Variables](#environment-variables)
+- [Installation](#installation)
+- [Running the Server](#running-the-server)
+- [Demo Credentials](#demo-credentials)
+- [API Reference](#api-reference)
+- [Authentication & Authorization](#authentication--authorization)
+- [Data Models](#data-models)
+- [Caching Strategy](#caching-strategy)
+- [File Uploads](#file-uploads)
+- [Email Service](#email-service)
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Runtime | Node.js | JavaScript server environment |
-| Framework | Express.js v4 | Routing & middleware |
-| Database | MongoDB | NoSQL document storage |
-| ODM | Mongoose v8 | Schema modeling & validation |
-| Auth | jsonwebtoken + bcrypt | Token auth & password hashing |
-| File Upload | Multer + Cloudinary v2 | Image & document storage |
-| Email | SendGrid / Nodemailer | Transactional emails |
-| Config | dotenv | Environment variable management |
-| Dev Tool | nodemon | Auto-restart on file changes |
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js |
+| Framework | Express 4 |
+| Database | MongoDB via Mongoose 8 |
+| Cache | Redis via ioredis |
+| Auth | JWT (jsonwebtoken) |
+| Password hashing | bcrypt |
+| File storage | Cloudinary + Multer |
+| Email | SendGrid (`@sendgrid/mail`) |
+| Rate limiting | express-rate-limit |
+| Dev tooling | nodemon |
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
-bank-b/
-├── app.js                        # Express app setup, routes registration
+bank-b-master/
+├── app.js                  # Express app setup, route mounting, error handler
 ├── bin/
-│   └── www                       # HTTP server entry point
+│   └── www                 # HTTP server entry point
 ├── controller/
-│   ├── controller.js             # Generic CRUD handlers (getData, createData, updateData, deleteData)
-│   ├── email.controller.js       # Email sending logic
-│   ├── login.controller.js       # Login & JWT generation
-│   └── upload.controller.js      # Cloudinary upload handler
+│   ├── controller.js       # Generic CRUD + pagination, filtering, transaction summary
+│   ├── email.controller.js # SendGrid email dispatch
+│   ├── login.controller.js # Login with JWT issuance
+│   └── upload.controller.js# Cloudinary upload handler
 ├── middlewares/
-│   ├── midddleware.js            # verifyToken, isAdmin, isAdminEmployee, isAdminEmployeeCustomer
-│   └── validate.js               # Request body validators for each route
+│   ├── midddleware.js      # verifyToken, isAdmin, isAdminEmployee, isAdminEmployeeCustomer
+│   └── validate.js         # Joi/custom request-body validators
 ├── model/
-│   ├── users.model.js            # User schema (Admin / Employee / Customer login)
-│   ├── customer.model.js         # Customer profile schema
-│   ├── transaction.model.js      # Transaction schema
-│   ├── branch.model.js           # Branch schema
-│   ├── branding.model.js         # Branding & bank account number schema
-│   └── currency.model.js         # Currency schema
+│   ├── branch.model.js
+│   ├── branding.model.js
+│   ├── currency.model.js
+│   ├── customer.model.js
+│   ├── transaction.model.js
+│   └── users.model.js
 ├── routes/
-│   ├── users.routes.js           # /api/users
-│   ├── customer.routes.js        # /api/customers
-│   ├── transaction.routes.js     # /api/transaction
-│   ├── login.routes.js           # /api/login
-│   ├── verify.routes.js          # /api/verify-token
-│   ├── upload.routes.js          # /api/upload
-│   ├── email.routes.js           # /api/email
-│   ├── branch.routes.js          # /api/branch
-│   ├── branding.routes.js        # /api/branding
-│   ├── currency.routes.js        # /api/currency
-│   └── findByAccount.routes.js   # /api/find-by-account
+│   ├── branch.routes.js
+│   ├── branding.routes.js
+│   ├── currency.routes.js
+│   ├── customer.routes.js
+│   ├── email.routes.js
+│   ├── findByAccount.routes.js
+│   ├── login.routes.js
+│   ├── transaction.routes.js
+│   ├── upload.routes.js
+│   ├── users.routes.js
+│   └── verify.routes.js
 ├── services/
-│   ├── db.service.js             # MongoDB connection & DB helpers
-│   ├── token.services.js         # JWT sign/verify helpers
-│   └── upload.service.js         # Cloudinary config & upload logic
+│   ├── db.service.js       # Mongoose CRUD helpers
+│   ├── redis.service.js    # getCache / setCache / deleteCache
+│   ├── token.services.js   # JWT verify helper
+│   └── upload.service.js   # Cloudinary config & upload logic
 ├── public/
-│   └── bankimages/               # Static assets
+│   └── bankimages/         # Static assets
+├── .env                    # Environment config (see below)
 └── package.json
 ```
 
 ---
 
-## ⚙️ Installation & Setup
+## Prerequisites
 
-### Prerequisites
-- Node.js v18+
-- MongoDB (local or Atlas)
-- Cloudinary account
-- SendGrid account (or SMTP credentials for Nodemailer)
-
-### Steps
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/your-username/bank-b.git
-cd bank-b
-
-# 2. Install dependencies
-npm install
-
-# 3. Create and configure .env (see section below)
-
-# 4. Start development server
-npx nodemon
-
-# 5. Start production server
-npm start
-```
-
-Server runs on **http://localhost:8080** by default.
+- **Node.js** ≥ 18
+- **MongoDB** instance (local or Atlas)
+- **Redis** instance (local or Redis Cloud)
+- **Cloudinary** account (for file/image uploads)
+- **SendGrid** account (for transactional emails)
 
 ---
 
-## 🔐 Environment Variables
+## Environment Variables
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the project root and fill in all values:
 
 ```env
-# MongoDB
-DB_URL=mongodb+srv://<user>:<password>@cluster.mongodb.net/bank
+# MongoDB connection string
+DB_URL=mongodb+srv://<user>:<password>@cluster.mongodb.net/<dbname>
 
-# Admin seed account (created on first boot)
-ADMIN_USER=admin@trustedbank.com
+# Admin seed user (used on first run if applicable)
+ADMIN_USER=admin@example.com
 
-# JWT
-JWT_SECRET=your_secure_jwt_secret_key
+# Secret used to sign and verify JWTs — keep this long and random
+JWT_SECRET=your_super_secret_jwt_key
 
-# Cloudinary
+# Cloudinary credentials (from Cloudinary Dashboard)
 CLOUD_NAME=your_cloud_name
-API_KEY=your_api_key
-API_SECRET=your_api_secret
+API_KEY=your_cloudinary_api_key
+API_SECRET=your_cloudinary_api_secret
 
-# SendGrid (for email notifications)
-SENDGRID_API_KEY=your_sendgrid_api_key
+# SendGrid API key
+SENDGRID_API_KEY=SG.xxxxxxxxxxxxxxxxxxxx
+
+# Redis connection string e.g. redis://localhost:6379 or redis://:<password>@host:port
+REDIS_URL=redis://localhost:6379
+
+# Comma-separated list of allowed CORS origins (currently set to * in app.js)
+ALLOWED_ORIGINS=http://localhost:5173
+
+# Port the server listens on (defaults to 3000 if omitted)
+PORT=3000
+```
+
+> **Security note:** Never commit `.env` to version control. The `.gitignore` already excludes it.
+
+---
+
+## Installation
+
+```bash
+# Clone / extract the repository
+cd bank-b-master
+
+# Install dependencies
+npm install
 ```
 
 ---
 
-## 📡 API Reference
+## Running the Server
 
-### 🔑 Authentication
+```bash
+# Production
+npm start
 
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| POST | `/api/login` | Login and receive JWT token | ❌ |
-| GET | `/api/verify-token` | Validate an existing JWT | ❌ |
-
----
-
-### 👤 Users (Admin / Employee accounts)
-
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| GET | `/api/users` | List all staff | ✅ Admin |
-| POST | `/api/users` | Create staff account | ✅ Admin + Employee |
-| PUT | `/api/users/:id` | Update staff details | ✅ Admin + Employee |
-| DELETE | `/api/users/:id` | Delete staff account | ✅ Admin + Employee |
-
----
-
-### 🏦 Customers
-
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| GET | `/api/customers` | List all customers | ✅ Admin + Employee |
-| POST | `/api/customers` | Create new customer account | ✅ Admin + Employee |
-| PUT | `/api/customers/:id` | Update customer details | ✅ Admin + Employee |
-| DELETE | `/api/customers/:id` | Delete customer | ✅ Admin only |
-| POST | `/api/find-by-account` | Find customer by account number | ✅ Admin + Employee |
-
----
-
-### 💳 Transactions
-
-| Method | Endpoint | Description | Access |
-|---|---|---|---|
-| GET | `/api/transaction` | Get all transactions | ✅ All roles |
-| POST | `/api/transaction` | Create Credit / Debit entry | ✅ Admin + Employee |
-| GET | `/api/transaction/summary` | Aggregated financial summary | ✅ All roles |
-| GET | `/api/transaction/pagination` | Paginated transaction list | ✅ All roles |
-| POST | `/api/transaction/filter` | Filter by date range / account | ✅ All roles |
-
----
-
-### ⚙️ Configuration & Utilities
-
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| GET/POST/PUT/DELETE | `/api/branch` | Manage bank branches | ❌ |
-| GET/POST/PUT/DELETE | `/api/branding` | Manage branding & account number counter | ❌ |
-| GET/POST/PUT/DELETE | `/api/currency` | Manage supported currencies | ❌ |
-| POST | `/api/upload` | Upload file to Cloudinary (`file` field) | ❌ |
-| POST | `/api/email` | Send credential email to customer | ❌ |
-
----
-
-## 🛡 Security Model
-
-All protected routes run `verifyToken` first, then a role guard:
-
-```
-Request → verifyToken → [isAdmin / isAdminEmployee / isAdminEmployeeCustomer] → Controller
+# Development (auto-reload with nodemon)
+npm run dev
 ```
 
-| Middleware | Allowed Roles |
+The server starts on `http://localhost:<PORT>` (default `3000`).
+
+---
+
+## Demo Credentials
+
+Use the following admin account to log in and explore the system:
+
+| Field | Value |
 |---|---|
-| `verifyToken` | Validates JWT, attaches `req.user` |
-| `isAdmin` | `admin` only |
-| `isAdminEmployee` | `admin`, `employee` |
-| `isAdminEmployeeCustomer` | `admin`, `employee`, `customer` |
+| **Email** | `trusted2003@gmail.com` |
+| **Password** | `Prem@2003` |
+| **Role** | `admin` |
 
-**Validation middleware** (`validate.js`) runs only on POST (create) routes — never on PUT or DELETE to avoid partial-update failures.
+Send a POST request to `/api/login` with the above credentials to receive a JWT token:
+
+```bash
+curl -X POST http://localhost:3000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "trusted2003@gmail.com", "password": "Prem@2003"}'
+```
+
+Use the returned token as a Bearer header on all subsequent protected requests:
+
+```bash
+Authorization: Bearer <your_jwt_token>
+```
 
 ---
 
-## 🗂 Data Models
+## API Reference
 
-### User (users.model.js)
-| Field | Type | Notes |
-|---|---|---|
-| `fullName` | String | Required |
-| `email` | String | Unique, required |
-| `password` | String | Bcrypt hashed |
-| `mobile` | String | 10 digits |
-| `branch` | String | Required |
-| `address` | String | Required |
-| `userType` | String | `admin` / `employee` / `customer` |
-| `isActive` | Boolean | Default: false |
+All routes are prefixed with `/api`. Protected routes require an `Authorization: Bearer <token>` header.
 
-### Customer (customer.model.js)
-| Field | Type | Notes |
-|---|---|---|
-| `accountNo` | String | Auto-assigned |
-| `fullName` | String | Required |
-| `email` | String | Unique, required |
-| `password` | String | Required |
-| `mobile` | String | 10 digits |
-| `fatherName` | String | Required |
-| `dob` | String | Required |
-| `gender` | String | `male` / `female` / `other` |
-| `currency` | String | `inr` / `usd` |
-| `profile` | String | Cloudinary URL |
-| `signature` | String | Cloudinary URL |
-| `document` | String | Cloudinary URL |
-| `finalBalance` | Number | Default: 0 |
-| `branch` | String | Required |
-| `createdBy` | String | Staff email |
-| `customerLoginId` | String | Ref to users._id |
-| `isActive` | Boolean | Default: false |
+### Authentication
 
-### Transaction (transaction.model.js)
-| Field | Type | Notes |
-|---|---|---|
-| `transactionType` | String | `cr` (credit) / `dr` (debit) |
-| `transactionAmount` | Number | Must be positive |
-| `accountNo` | String | Required |
-| `branch` | String | Required |
-| `category` | String | `salary`, `deposit`, `withdrawal`, `transfer`, `loan`, `fee`, `other` |
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/api/login` | Public | Login with email + password; returns JWT |
+| GET | `/api/verify-token` | Bearer token | Validate a JWT and return decoded payload |
+
+### Users (Staff / Employees)
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/users` | Admin | List all users |
+| POST | `/api/users` | Admin, Employee | Create a new user (employee) |
+| PUT | `/api/users/:id` | Admin, Employee | Update user record |
+| DELETE | `/api/users/:id` | Admin, Employee | Delete a user |
+
+### Customers
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/customers` | Admin, Employee | List all customers |
+| POST | `/api/customers` | Admin, Employee | Create a new customer account |
+| PUT | `/api/customers/:id` | Admin, Employee | Update customer details |
+| DELETE | `/api/customers/:id` | Admin only | Delete a customer |
+| GET | `/api/find-by-account` | Admin, Employee | Look up a customer by account number |
+
+### Transactions
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/transaction` | Admin, Employee | Paginated transaction list |
+| GET | `/api/transaction/pagination` | All roles | Paginated transactions (role-filtered) |
+| GET | `/api/transaction/summary` | All roles | Credit/debit summary per account or branch |
+| POST | `/api/transaction` | Admin, Employee | Record a new credit or debit transaction |
+| POST | `/api/transaction/filter` | All roles | Filter transactions by date, type, account, branch |
+| PUT | `/api/transaction/:id` | Admin, Employee | Update a transaction record |
+| DELETE | `/api/transaction/:id` | Admin only | Delete a transaction |
+
+### Branch
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/branch` | Authenticated | List all branches |
+| POST | `/api/branch` | Admin | Create a branch |
+| PUT | `/api/branch/:id` | Admin | Update a branch |
+| DELETE | `/api/branch/:id` | Admin | Delete a branch |
+
+### Currency
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/currency` | Authenticated | List all currencies |
+| POST | `/api/currency` | Admin | Create a currency |
+| PUT | `/api/currency/:id` | Admin | Update a currency |
+| DELETE | `/api/currency/:id` | Admin | Delete a currency |
+
+### Branding
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/branding` | Authenticated | Get bank branding settings |
+| POST | `/api/branding` | Admin | Create branding record |
+| PUT | `/api/branding/:id` | Admin | Update branding |
+| DELETE | `/api/branding/:id` | Admin | Delete branding record |
+
+### File Upload
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/api/upload?folderName=<folder>` | Authenticated | Upload a file to Cloudinary; returns secure URL |
+
+### Email
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/api/email` | Authenticated | Send a transactional email via SendGrid |
+
+---
+
+## Authentication & Authorization
+
+JWT-based auth is enforced via three middleware guards defined in `middlewares/midddleware.js`:
+
+- **`verifyToken`** — validates the Bearer token on every protected route.
+- **`isAdmin`** — restricts the route to users with `userType === "admin"`.
+- **`isAdminEmployee`** — allows `admin` and `employee` roles.
+- **`isAdminEmployeeCustomer`** — allows all authenticated roles.
+
+Tokens are issued on login and contain the user's ID, email, and `userType`. The JWT secret is set via `JWT_SECRET` in `.env`.
+
+---
+
+## Data Models
+
+### User
+Fields: `fullName`, `mobile`, `email` (unique), `password` (bcrypt-hashed on save), `profile`, `address`, `branch`, `userType` (`admin | employee | customer`), `isActive`.
+
+### Customer
+Fields: `accountNo`, `fullName`, `mobile`, `email` (unique), `password`, `fatherName`, `dob`, `gender`, `currency`, `profile`, `signature`, `document`, `finalBalance`, `address`, `branch`, `userType`, `createdBy`, `customerLoginId`, `isActive`.
+
+### Transaction
+Fields: `transactionType` (`cr | dr`), `transactionAmount`, `category` (`salary | deposit | withdrawal | transfer | loan | fee | other`), `notes`, `refrence`, `currentBalance`, `accountNo`, `branch`, `customerId`.
+
+### Branch
+Fields: `branchName` (unique), `key`, `branchAddress`.
+
+### Currency
+Fields: `currencyName` (unique), `key`, `currencyDesc`.
+
+### Branding
+Fields: `bankName`, `bankTagline`, `bankLogo`, `bankAccountNo`, `bankTransactionId`, `bankAddress`, `bankLinkedIn`, `bankTwitter`, `bankFacebook`, `bankDesc`.
+
+All models include Mongoose `timestamps` (`createdAt`, `updatedAt`).
+
+---
+
+## Caching Strategy
+
+Redis is used to cache read-heavy, slowly changing data. TTLs are defined in `controller.js`:
+
+| Data | TTL |
+|---|---|
+| Branch list | 5 minutes |
+| Currency list | 5 minutes |
+| Branding | 10 minutes |
+| Transaction summary | 60 seconds |
+
+Cache is **automatically invalidated** on any create, update, or delete operation for that resource. The MongoDB connection pool is configured with `maxPoolSize: 20` and `minPoolSize: 5` for production throughput.
+
+---
+
+## File Uploads
+
+Files are uploaded to **Cloudinary** via the `POST /api/upload` endpoint. The `folderName` query parameter determines the Cloudinary folder (e.g., `profiles`, `signatures`, `documents`). Multer handles the `multipart/form-data` parsing before the file is streamed to Cloudinary.
+
+The endpoint returns a `{ secure_url, public_id }` object which should be stored in the relevant customer or user record.
+
+---
+
+## Email Service
+
+Transactional emails are sent via **SendGrid**. The `POST /api/email` endpoint accepts `to`, `subject`, and `html` body fields. The `SENDGRID_API_KEY` environment variable must be set for emails to dispatch successfully.
