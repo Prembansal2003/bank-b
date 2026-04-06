@@ -3,6 +3,15 @@
 A RESTful API server built with **Node.js**, **Express**, and **MongoDB** that powers the Trusted Bank Management System. It handles authentication, user and customer management, transactions, branch/currency/branding configuration, and file uploads, with Redis-backed caching for high-read endpoints.
 
 ---
+<img width="1904" height="827" alt="Screenshot 2026-04-06 195025" src="https://github.com/user-attachments/assets/521142a7-5b9f-4882-a704-7cd4dd11d48c" />
+
+<img width="1888" height="882" alt="Screenshot 2026-04-06 195040" src="https://github.com/user-attachments/assets/3ec8c469-b3a9-40ef-910d-1466f69d9467" />
+
+<img width="1894" height="868" alt="Screenshot 2026-04-06 195144" src="https://github.com/user-attachments/assets/f49b1294-27cf-4fc9-97e8-88c5ff9ae8da" />
+
+<img width="1890" height="878" alt="Screenshot 2026-04-06 194857" src="https://github.com/user-attachments/assets/b538f3b0-fca7-4014-aa3e-1b811b64f81b" />
+
+<img width="1888" height="853" alt="Screenshot 2026-04-06 194946" src="https://github.com/user-attachments/assets/890e8c6c-6de8-4a01-817a-23b037e4b46a" />
 
 ## Table of Contents
 
